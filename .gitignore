@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+publish/
+dist/
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# Runtime logs
+logs/

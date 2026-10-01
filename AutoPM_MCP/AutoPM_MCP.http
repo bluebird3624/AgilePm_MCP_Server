@@ -1,0 +1,49 @@
+# For more info on HTTP files go to https://aka.ms/vs/httpfile
+
+@HostAddress = http://localhost:6015
+# Paste the access token returned by the login tool here.
+@AccessToken = <agile-pm-access-token>
+
+### Sign in (no token needed)
+POST {{HostAddress}}/
+Accept: application/json, text/event-stream
+Content-Type: application/json
+MCP-Protocol-Version: 2025-11-25
+
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "login",
+        "arguments": { "email": "you@example.com", "password": "..." }
+    }
+}
+
+### List the tools
+POST {{HostAddress}}/
+Accept: application/json, text/event-stream
+Content-Type: application/json
+MCP-Protocol-Version: 2025-11-25
+
+{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list"
+}
+
+### My projects (the bearer token is forwarded to Agile PM)
+POST {{HostAddress}}/
+Accept: application/json, text/event-stream
+Content-Type: application/json
+MCP-Protocol-Version: 2025-11-25
+Authorization: Bearer {{AccessToken}}
+
+{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+        "name": "list_my_projects"
+    }
+}
