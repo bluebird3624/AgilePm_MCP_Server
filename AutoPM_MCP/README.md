@@ -6,31 +6,65 @@ and user stories, and create, update and move tasks.
 
 - Works over **HTTP** or **stdio** (also called *bus mode*).
 - Uses **the caller's own Agile PM bearer token** for every request, so users only see and change what Agile PM already allows them to.
-- Ships as **one self-contained executable** for Windows, Linux or macOS. The target machine doesn't need .NET installed. See [Building a standalone executable](#building-a-standalone-executable) and [Publishing and hosting on a server](#publishing-and-hosting-on-a-server).
+- Ships as **one self-contained executable** for Windows, Linux or macOS. The target machine doesn't need .NET installed. **[Download it](#download-and-get-started)**, or see [Building a standalone executable](#building-a-standalone-executable) and [Publishing and hosting on a server](#publishing-and-hosting-on-a-server).
+
+---
+
+## What is Agile PM?
+
+**Agile PM** is a web-based project and work management platform. Teams use it to run software and service projects
+from contract to delivery. Judging by what its API exposes, it covers:
+
+| Area | What it manages |
+|------|-----------------|
+| **Projects and clients** | Projects with a project manager, scrum master and team members; clients and their contact people; contracts and addenda; risks |
+| **Planning** | Phases, milestones and milestone groups; **epics** broken down into **user stories**; sprints |
+| **Delivery** | **Tasks** and **sub-tasks** with assignees, priority, complexity, planned and actual hours, and due dates; a workflow (`Planned → InProgress → Completed → Closed`, plus `Returned` and `Cancelled`); comments with @-mentions; work timers (pause/resume); verification of completed work |
+| **Personal work** | "My work" across all projects, weekly work reports, a dashboard summary, notifications |
+| **Finance** | Project budgets, expenses, invoicing and receipt projections, finance dashboards |
+| **Reporting** | Progress summaries per epic, phase and milestone; work distribution across the team |
+| **Support and integrations** | Support tickets and contracts; Azure DevOps integration; Employee Self-Service (ESS) single sign-on |
+
+It's built on a REST API secured with JWT bearer tokens. The API is documented with Swagger at `/coreswagger/index.html` on your Agile PM host.
+
+### What this MCP server adds
+
+This server puts the **day-to-day delivery** part of Agile PM within reach of an AI assistant, so a team member can ask in plain language:
+
+- *"Which projects am I on, and what's on my plate this week?"*
+- *"Create an epic for the reporting module in Project X with three user stories."*
+- *"Break this story into tasks, assign them to Jane, and give each 4 hours."*
+- *"Move my API task to In Progress and log 2 hours."*
+- *"Add a comment on that task tagging the scrum master."*
+
+The assistant calls Agile PM **as that user**, with their own token and permissions. Setup, finance, reporting and admin
+features aren't exposed yet (see [Known limitations](#known-limitations-and-roadmap)).
 
 ---
 
 ## Contents
 
-1. [How it works](#how-it-works)
-2. [Requirements](#requirements)
-3. [Quick start](#quick-start)
-4. [Configuration](#configuration)
-5. [Transport modes](#transport-modes)
-6. [Authentication](#authentication)
-7. [Connecting an MCP client](#connecting-an-mcp-client)
-8. [Tool reference](#tool-reference)
-9. [Enum reference](#enum-reference)
-10. [Behaviour you should know about](#behaviour-you-should-know-about)
-11. [Building a standalone executable](#building-a-standalone-executable)
-12. [Publishing and hosting on a server](#publishing-and-hosting-on-a-server)
-13. [Logging](#logging)
-14. [Project structure](#project-structure)
-15. [Adding a new tool](#adding-a-new-tool)
-16. [Testing](#testing)
-17. [Troubleshooting](#troubleshooting)
-18. [Security notes](#security-notes)
-19. [Known limitations and roadmap](#known-limitations-and-roadmap)
+1. [What is Agile PM?](#what-is-agile-pm)
+2. [How it works](#how-it-works)
+3. [Requirements](#requirements)
+4. [Download and get started](#download-and-get-started)
+5. [Run from source](#run-from-source)
+6. [Configuration](#configuration)
+7. [Transport modes](#transport-modes)
+8. [Authentication](#authentication)
+9. [Connecting an MCP client](#connecting-an-mcp-client)
+10. [Tool reference](#tool-reference)
+11. [Enum reference](#enum-reference)
+12. [Behaviour you should know about](#behaviour-you-should-know-about)
+13. [Building a standalone executable](#building-a-standalone-executable)
+14. [Publishing and hosting on a server](#publishing-and-hosting-on-a-server)
+15. [Logging](#logging)
+16. [Project structure](#project-structure)
+17. [Adding a new tool](#adding-a-new-tool)
+18. [Testing](#testing)
+19. [Troubleshooting](#troubleshooting)
+20. [Security notes](#security-notes)
+21. [Known limitations and roadmap](#known-limitations-and-roadmap)
 
 ---
 
@@ -60,13 +94,112 @@ Agile PM API documentation (Swagger): <https://your-agilepm-host/coreswagger/ind
 
 | To... | You need |
 |-------|----------|
-| Run a published build | Nothing: the executable contains the .NET runtime |
+| Run a published build | Nothing: the executable contains the .NET runtime ([download](#download-and-get-started)) |
 | Build from source | [.NET 10 SDK](https://dotnet.microsoft.com/download) |
 | Use the tools | An Agile PM account, and network access to the Agile PM API |
 
 ---
 
-## Quick start
+## Download and get started
+
+Ready-made executables are published on the repository's **[Releases page](https://github.com/bluebird3624/AgilePm_MCP_Server/releases/latest)**.
+They're self-contained, so **you don't need .NET**.
+
+### 1. Download the file for your computer
+
+| Your computer | Download |
+|---------------|----------|
+| Windows 10/11 (Intel/AMD, most PCs) | `AutoPM_MCP-<version>-win-x64.zip` |
+| Windows on ARM (Surface Pro X, Copilot+ PCs) | `AutoPM_MCP-<version>-win-arm64.zip` |
+| macOS, Apple silicon (M1 or later) | `AutoPM_MCP-<version>-osx-arm64.tar.gz` |
+| Linux 64-bit (Ubuntu, Debian, RHEL, ...) | `AutoPM_MCP-<version>-linux-x64.tar.gz` |
+| Linux ARM 64-bit | `AutoPM_MCP-<version>-linux-arm64.tar.gz` |
+| Alpine Linux / Docker (musl) | `AutoPM_MCP-<version>-linux-musl-x64.tar.gz` |
+
+Not sure which one? See [Pick your target RIDs](#2-pick-your-target-rids).
+
+Optional: check the download against `SHA256SUMS.txt` from the same release:
+
+```powershell
+Get-FileHash .\AutoPM_MCP-<version>-win-x64.zip -Algorithm SHA256     # Windows
+```
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing                          # Linux / macOS
+```
+
+### 2. Extract it to a permanent folder
+
+Each archive contains a folder with two files: the executable (`AutoPM_MCP.exe` / `AutoPM_MCP`) and `appsettings.json`. Keep them together.
+
+| OS | Suggested location | How |
+|----|--------------------|-----|
+| Windows | `C:\Tools\AutoPM_MCP\` | Right-click the zip → *Extract All*. If Windows blocks the exe: right-click it → Properties → *Unblock*. |
+| macOS | `~/Applications/AutoPM_MCP/` | `tar -xzf AutoPM_MCP-*-osx-arm64.tar.gz`, then `xattr -d com.apple.quarantine AutoPM_MCP` |
+| Linux | `/opt/autopm-mcp/` or `~/.local/bin/autopm-mcp/` | `tar -xzf AutoPM_MCP-*-linux-x64.tar.gz` (the file is already executable) |
+
+### 3. Tell it where your Agile PM is
+
+Open `appsettings.json` next to the executable and set your Agile PM API address. Ask your Agile PM administrator if you don't know it.
+
+```json
+"AgilePM": {
+  "ApiBaseUrl": "https://<your-agile-pm-host>/api/",
+  "TimeoutSeconds": 30
+}
+```
+
+Or skip editing the file and set the environment variable `AgilePM__ApiBaseUrl` instead, for example in your MCP client's `env` block.
+
+### 4. Check it starts
+
+```bash
+# Windows (PowerShell):  .\AutoPM_MCP.exe --stdio
+# macOS / Linux:         ./AutoPM_MCP --stdio
+```
+
+It should start quietly and wait for input. Press `Ctrl+C` to stop it. If it exits straight away with *"AgilePM:ApiBaseUrl … is required"*, step 3 isn't done.
+
+### 5. Register it with your AI client
+
+The easiest setup is **stdio**: your AI client starts the executable itself. For example, Claude Code on Windows:
+
+```bash
+claude mcp add --scope user agilepm -- "C:\Tools\AutoPM_MCP\AutoPM_MCP.exe" --stdio
+```
+
+Or add it to the client's JSON config. Claude Desktop, Cursor and others use the same idea; note the doubled backslashes:
+
+```json
+{
+  "mcpServers": {
+    "agilepm": {
+      "command": "C:\\Tools\\AutoPM_MCP\\AutoPM_MCP.exe",
+      "args": ["--stdio"],
+      "env": { "AGILEPM_TOKEN": "<your access token>" }
+    }
+  }
+}
+```
+
+Instructions for 13 clients are in [Connecting an MCP client](#connecting-an-mcp-client).
+
+### 6. Sign in
+
+1. Restart your AI client and ask: *"Log in to Agile PM"*. The `login` tool works without a token and returns your **access token**.
+2. Put the token in the client config as `AGILEPM_TOKEN` (stdio) or as the `Authorization: Bearer <token>` header (HTTP), then restart the client.
+3. Ask: *"Which Agile PM projects am I on?"*
+
+> Prefer not to type your password into a chat? Get the token with the `login` request in `AutoPM_MCP.http` (or any HTTP tool) and paste only the token into the config.
+
+When the token expires, ask the assistant to *"refresh my Agile PM token"* and update the config again. See [When the token expires](#when-the-token-expires).
+
+### Updating
+
+Download the new release, close your AI client (it stops the server), replace the executable, keep your `appsettings.json`, and start the client again.
+
+---
+
+## Run from source
 
 ```bash
 # 1. Run from source in HTTP mode (listens on http://localhost:6015)
@@ -1057,40 +1190,34 @@ done
 
 > Zip files made on Windows don't keep the Unix "executable" permission. Linux/macOS users have to run `chmod +x AutoPM_MCP` after extracting. The Bash script's `.tar.gz` files keep the permission.
 
-### 5. Build in CI (GitHub Actions example)
+### 5. Build in CI: the included release workflow
 
-```yaml
-# .github/workflows/release.yml
-name: release
-on:
-  push:
-    tags: [ 'v*' ]
+The repository includes `.github/workflows/release.yml`. It builds every platform on GitHub's runners and publishes them as a **GitHub Release**:
 
-jobs:
-  publish:
-    strategy:
-      matrix:
-        rid: [ win-x64, win-arm64, osx-arm64, linux-x64, linux-arm64, linux-musl-x64 ]
-    runs-on: ubuntu-latest           # cross-builds every RID from Linux
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-      - name: Publish
-        run: >
-          dotnet publish AutoPM_MCP/AutoPM_MCP.csproj -c Release -r ${{ matrix.rid }} -o out
-          -p:EnableCompressionInSingleFile=true -p:DebugType=none
-          -p:Version=${GITHUB_REF_NAME#v}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: AutoPM_MCP-${{ matrix.rid }}
-          path: |
-            out/AutoPM_MCP*
-            out/appsettings.json
+| Trigger | Result |
+|---------|--------|
+| Push a tag `v*` (e.g. `v1.2.0`) | Builds all 6 platforms, versions them from the tag, and creates a Release with the zips/tarballs + `SHA256SUMS.txt` |
+| *Actions → Release → Run workflow* | Builds all platforms as downloadable workflow artifacts only (no release); version `0.0.0-dev.<run>` |
+
+How it builds:
+- `win-*` and `linux-*` are cross-compiled on Ubuntu. `osx-arm64` is built **on macOS**, so the SDK ad-hoc signs it; Apple silicon refuses unsigned binaries.
+- Each archive contains only the executable + `appsettings.json`. The file comes from the repository, so it has whatever `ApiBaseUrl` is committed.
+- Linux/macOS archives are `.tar.gz`, which keeps the executable bit.
+
+**Cutting a release:**
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
-Azure DevOps Pipelines works the same way: one `DotNetCoreCLI@2` publish task per RID, with the same arguments.
+Then watch the **Actions** tab. When the run is green, the release appears under **Releases** with its downloads, and the auto-generated notes list the commits since the last tag.
+
+If a release run fails part-way, delete the tag and push it again after fixing:
+
+```bash
+git push origin :refs/tags/v1.2.0 && git tag -d v1.2.0
+```
 
 ### 6. What to ship
 
