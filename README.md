@@ -1445,7 +1445,7 @@ The server is stateless, so a restart only interrupts calls that are running at 
 
 Use the `linux-x64` (or `linux-musl-x64` for Alpine) single-file build on top of Microsoft's `runtime-deps` image. That image contains only the OS libraries .NET needs, because the runtime is already inside the executable.
 
-**`Dockerfile`** (multi-stage: builds inside Docker, so the build machine only needs Docker):
+**`AutoPM_MCP/Dockerfile`** (multi-stage: builds inside Docker, so the build machine only needs Docker). Save it in the project folder, next to `AutoPM_MCP.csproj`, and run `docker build` from there:
 
 ```dockerfile
 # ---- build ----
@@ -1616,6 +1616,12 @@ Logging uses [Serilog](https://serilog.net/) and is configured in the `Serilog` 
 ## Project structure
 
 ```
+.                                    # repository root
+├── README.md                        # this file
+├── AutoPM_MCP.slnx                  # solution
+├── .github/workflows/release.yml    # builds all platforms and publishes GitHub Releases on v* tags
+└── AutoPM_MCP/                      # the project
+
 AutoPM_MCP/
 ├── Program.cs                       # Startup: picks HTTP or stdio, wires logging, MCP and Agile PM services
 ├── appsettings.json                 # API base URL, transport, logging

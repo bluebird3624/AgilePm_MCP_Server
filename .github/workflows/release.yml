@@ -62,7 +62,9 @@ jobs:
           name="AutoPM_MCP-${{ steps.version.outputs.version }}-${{ matrix.rid }}"
           mkdir -p "pkg/$name" dist
           # Ship only what is needed to run: the executable and its settings file.
-          cp out/AutoPM_MCP* out/appsettings.json "pkg/$name/"
+          for f in AutoPM_MCP AutoPM_MCP.exe appsettings.json; do
+            if [[ -f "out/$f" ]]; then cp "out/$f" "pkg/$name/"; fi
+          done
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
             (cd pkg && zip -qr "../dist/$name.zip" "$name")
           else
