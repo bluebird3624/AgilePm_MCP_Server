@@ -26,7 +26,7 @@ internal class UserStoryTools(AgilePmClient client, CurrentUser currentUser)
         CancellationToken cancellationToken = default)
     {
         var userId = assignedToMe
-            ? currentUser.GetIdentity().UserId ?? throw new McpException("Could not find a user ID in your access token.")
+            ? (await currentUser.GetIdentityAsync(cancellationToken)).UserId ?? throw new McpException("Could not find a user ID in your access token.")
             : assignedToUserId;
 
         if (projectId is null && epicId is null && userId is null)

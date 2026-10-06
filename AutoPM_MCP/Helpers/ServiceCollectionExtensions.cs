@@ -16,6 +16,13 @@ public static class ServiceCollectionExtensions
             .Validate(o => o.ApiBaseUrl is { IsAbsoluteUri: true }, "AgilePM:ApiBaseUrl must be an absolute URL.")
             .ValidateOnStart();
 
+        // Short aliases for MCP client "env" blocks; they win over appsettings.json like any environment setting.
+        services.PostConfigure<AgilePmOptions>(o =>
+        {
+            o.Email = NonEmpty(configuration[EmailAlias]) ?? o.Email;
+            o.Password = NonEmpty(configuration[PasswordAlias]) ?? o.Password;
+        });
+
         if (transport == McpTransportMode.Http)
         {
             services.AddHttpContextAccessor();
@@ -23,7 +30,8 @@ public static class ServiceCollectionExtensions
         }
         else
         {
-            services.AddSingleton<IAccessTokenProvider, ConfigurationTokenProvider>();
+            services.AddSingleton<IAccessTokenProvider, StdioTokenProvider>();
+            services.AddHostedService<StartupSignInService>();
         }
 
         services.AddSingleton<CurrentUser>();
@@ -40,6 +48,11 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    public const string EmailAlias = "AGILEPM_EMAIL";
+    public const string PasswordAlias = "AGILEPM_PASSWORD";
+
+    private static string? NonEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>
     /// Without a trailing slash, HttpClient would replace the last segment of the base URL ("api") with the request path.

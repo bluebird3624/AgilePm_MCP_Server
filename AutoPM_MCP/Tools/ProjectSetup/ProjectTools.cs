@@ -23,7 +23,7 @@ internal class ProjectTools(AgilePmClient client, CurrentUser currentUser)
         CancellationToken cancellationToken = default)
     {
         // getProjects returns every project the caller can see, not just the ones they are on, so filter here.
-        var identity = currentUser.GetIdentity();
+        var identity = await currentUser.GetIdentityAsync(cancellationToken);
         var projects = await client.GetAllPagesAsync(ProjectsPath, AgilePmQuery.Create(), cancellationToken);
 
         var myProjects = projects

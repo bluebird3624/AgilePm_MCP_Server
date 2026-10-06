@@ -6,11 +6,14 @@ namespace AutoPM_MCP.Tools.Auth;
 
 /// <summary>
 /// Sign-in tools for the Agile PM Auth controller. These are the only tools that work without a bearer token.
-/// This server is stateless and never stores tokens: the user must configure the returned token in their MCP client.
+/// In stdio mode the returned token is used for the rest of the session; in HTTP mode the server is stateless
+/// and the user must configure the token in their MCP client.
 /// </summary>
 [McpServerToolType]
-internal class AuthTools(AgilePmClient client)
+internal class AuthTools(AgilePmClient client, IAccessTokenProvider tokenProvider)
 {
+    private const string SessionTokenNote = "This server will use the new access token for the rest of this session.";
+
     private const string ConfigureTokenNote =
         "This server does not store tokens. Configure the returned access token in your MCP client " +
         "(HTTP: 'Authorization: Bearer <token>' header; stdio: AGILEPM_TOKEN environment variable) so later tool calls are authenticated.";
@@ -23,7 +26,7 @@ internal class AuthTools(AgilePmClient client)
         CancellationToken cancellationToken = default)
     {
         var response = await client.PostAnonymousAsync("Auth/Login", new LoginRequest(email, password), cancellationToken);
-        return ToolResponse.Success($"Signed in. {ConfigureTokenNote}", response);
+        return ToolResponse.Success($"Signed in. {RememberToken(response)}", response);
     }
 
     [McpServerTool(Destructive = false, OpenWorld = true)]
@@ -34,8 +37,14 @@ internal class AuthTools(AgilePmClient client)
         CancellationToken cancellationToken = default)
     {
         var response = await client.PostAnonymousAsync("Auth/RefreshToken", new RefreshTokenRequest(jwtToken, refreshToken), cancellationToken);
-        return ToolResponse.Success($"Token refreshed. {ConfigureTokenNote}", response);
+        return ToolResponse.Success($"Token refreshed. {RememberToken(response)}", response);
     }
+
+    /// <summary>stdio mode keeps the new token for later calls; HTTP mode can't, so the user has to configure it.</summary>
+    private string RememberToken(AgilePmResponse response) =>
+        response.Data is { } body && StdioTokenProvider.FindToken(body) is { } token && tokenProvider.Remember(token)
+            ? SessionTokenNote
+            : ConfigureTokenNote;
 
     private sealed record LoginRequest(string Email, string Password);
 

@@ -140,7 +140,7 @@ static void ConfigureServerInfo(ModelContextProtocol.Server.McpServerOptions opt
     {
         Name = "AutoPM MCP Server",
         Description = "An MCP server for use with LLMs to work with AgilePM",
-        Version = "1.0.0"
+        Version = "1.1.0"
     };
 }
 

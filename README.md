@@ -80,13 +80,13 @@ features aren't exposed yet (see [Known limitations](#known-limitations-and-road
 ```
 
 1. The MCP client calls a tool, for example `list_my_projects`.
-2. The server finds the caller's token. In HTTP mode it reads the `Authorization` header of that MCP request. In stdio mode it reads the `AGILEPM_TOKEN` environment variable.
+2. The server finds the caller's token. In HTTP mode it reads the `Authorization` header of that MCP request. In stdio mode it signs in at startup with `AgilePM:Email` / `AgilePM:Password` from `appsettings.json` and keeps the token in memory (or, without credentials, reads the `AGILEPM_TOKEN` environment variable).
 3. `AgilePmClient` sends the request to Agile PM with **the same token**. The server never issues, stores or caches tokens.
 4. The Agile PM response envelope is unwrapped and errors are turned into plain messages. The tool returns compact JSON to the AI.
 
 The HTTP transport is **stateless**. Each request stands alone, so you can run several instances behind a load balancer with no sticky sessions.
 
-Agile PM API documentation (Swagger): <https://your-agilepm-host/coreswagger/index.html>
+Agile PM API documentation (Swagger): <https://agilepm.example.com/coreswagger/index.html>
 
 ---
 
@@ -175,18 +175,27 @@ Or add it to the client's JSON config. Claude Desktop, Cursor and others use the
     "agilepm": {
       "command": "C:\\Tools\\AutoPM_MCP\\AutoPM_MCP.exe",
       "args": ["--stdio"],
-      "env": { "AGILEPM_TOKEN": "<your access token>" }
+      "env": {
+        "AGILEPM_EMAIL": "<your Agile PM email>",
+        "AGILEPM_PASSWORD": "<your Agile PM password>"
+      }
     }
   }
 }
 ```
 
+In stdio mode the server signs in with these credentials itself, so you never copy a token around. (You can put them in `appsettings.json` as `AgilePM:Email` / `AgilePM:Password` instead.)
+
 Instructions for 13 clients are in [Connecting an MCP client](#connecting-an-mcp-client).
 
 ### 6. Sign in
 
+**stdio (with credentials from step 5):** nothing to do. The server signs in when it starts and signs in again whenever the token expires. Restart your AI client and ask: *"Which Agile PM projects am I on?"*
+
+**HTTP (or stdio without credentials):**
+
 1. Restart your AI client and ask: *"Log in to Agile PM"*. The `login` tool works without a token and returns your **access token**.
-2. Put the token in the client config as `AGILEPM_TOKEN` (stdio) or as the `Authorization: Bearer <token>` header (HTTP), then restart the client.
+2. Put the token in the client config as the `Authorization: Bearer <token>` header (HTTP) or `AGILEPM_TOKEN` (stdio), then restart the client.
 3. Ask: *"Which Agile PM projects am I on?"*
 
 > Prefer not to type your password into a chat? Get the token with the `login` request in `AutoPM_MCP.http` (or any HTTP tool) and paste only the token into the config.
@@ -215,7 +224,7 @@ dotnet run --launch-profile http
 To run in stdio mode instead:
 
 ```bash
-dotnet run -- --stdio            # token from the AGILEPM_TOKEN environment variable
+dotnet run -- --stdio            # signs in with AgilePM:Email / AgilePM:Password (or AGILEPM_EMAIL / AGILEPM_PASSWORD), else uses AGILEPM_TOKEN
 ```
 
 ---
@@ -234,10 +243,12 @@ Settings are read in this order, **later sources win**:
 
 | Key | Env variable form | Default | Description |
 |-----|-------------------|---------|-------------|
-| `AgilePM:ApiBaseUrl` | `AgilePM__ApiBaseUrl` | `https://your-agilepm-host/api/` | Base URL of the Agile PM API. **Required.** Must be absolute; the trailing `/` is added if missing. |
+| `AgilePM:ApiBaseUrl` | `AgilePM__ApiBaseUrl` | `https://agilepm.example.com/api/` | Base URL of the Agile PM API. **Required.** Must be absolute; the trailing `/` is added if missing. |
 | `AgilePM:TimeoutSeconds` | `AgilePM__TimeoutSeconds` | `30` | Timeout for each Agile PM request (5–300). |
 | `McpTransport` | `McpTransport` | `Http` | `Http` or `Stdio`. The `--stdio` flag overrides it. |
-| `AGILEPM_TOKEN` | `AGILEPM_TOKEN` | – | The user's access token. **Used in stdio mode only.** |
+| `AgilePM:Email` | `AgilePM__Email` or `AGILEPM_EMAIL` | – | Account the server signs in as at startup. **stdio mode only**; ignored in HTTP mode. |
+| `AgilePM:Password` | `AgilePM__Password` or `AGILEPM_PASSWORD` | – | Password for `AgilePM:Email`. **stdio mode only.** Stored in plain text: don't commit it. |
+| `AGILEPM_TOKEN` | `AGILEPM_TOKEN` | – | The user's access token. **stdio mode only**, and only used when `AgilePM:Email` / `AgilePM:Password` aren't set. |
 | `Urls` | `ASPNETCORE_URLS` | `http://localhost:5000` | Address and port the HTTP server listens on (published builds). |
 | `Serilog:*` | `Serilog__...` | see `appsettings.json` | Logging configuration (see [Logging](#logging)). |
 
@@ -249,7 +260,7 @@ Settings are read in this order, **later sources win**:
 {
   "McpTransport": "Http",
   "AgilePM": {
-    "ApiBaseUrl": "https://your-agilepm-host/api/",
+    "ApiBaseUrl": "https://agilepm.example.com/api/",
     "TimeoutSeconds": 30
   }
 }
@@ -265,8 +276,8 @@ The server **validates its settings at startup**. If `ApiBaseUrl` is missing or 
 |---|---|---|
 | Start | `AutoPM_MCP` (default) or `McpTransport=Http` | `AutoPM_MCP --stdio` or `McpTransport=Stdio` |
 | Who starts the process | You (or a service manager) | The MCP client starts it as a child process |
-| Users per process | Many: each request carries its own token | One: the token in `AGILEPM_TOKEN` |
-| Token source | `Authorization: Bearer <token>` header on each MCP request | `AGILEPM_TOKEN` environment variable |
+| Users per process | Many: each request carries its own token | One: the account in `AgilePM:Email` (or the token in `AGILEPM_TOKEN`) |
+| Token source | `Authorization: Bearer <token>` header on each MCP request | Signs in with `AgilePM:Email` / `AgilePM:Password` at startup and re-signs in when the token expires; falls back to `AGILEPM_TOKEN` |
 | Endpoint | `POST /` (Streamable HTTP, stateless) | stdin/stdout |
 | Logs | Console and file | **stderr** and file (stdout is reserved for the protocol) |
 | Typical use | Shared or team server, remote clients | Desktop clients on one user's machine |
@@ -277,15 +288,31 @@ In stdio mode the server loads `appsettings.json` from **the executable's folder
 
 ## Authentication
 
-Agile PM uses JWT bearer tokens. This server is a pass-through: it **never stores tokens**. The user gets a token and configures it in their MCP client.
+Agile PM uses JWT bearer tokens. How the server gets one depends on the transport.
 
-### Typical flow
+### stdio: automatic sign-in
+
+With credentials configured, the server handles tokens itself:
+
+1. Credentials come from `AGILEPM_EMAIL` / `AGILEPM_PASSWORD` (the client's `env` block) or `AgilePM:Email` / `AgilePM:Password` in `appsettings.json` next to the executable. Environment values win.
+2. The server signs in **at startup**, in the background, so the MCP handshake isn't delayed. A wrong password is logged (*"Startup sign-in to Agile PM failed: … Wrong username or password"*) and reported by the first tool call.
+3. The token is kept **in memory only**, never written to disk or to the client config.
+4. About a minute before the token's `exp` time, the next call signs in again. If Agile PM rejects a token early (401), the server signs in again and retries the request once.
+5. Calling the `login` or `refresh_token` tool switches the session to the returned token.
+
+So in stdio mode you **never restart the server or the client because a token expired**. Restarting only means a fresh sign-in (about a second).
+
+Without credentials, stdio falls back to the `AGILEPM_TOKEN` environment variable and the manual flow below.
+
+### HTTP (and stdio without credentials): manual flow
+
+In HTTP mode the server is a stateless pass-through that serves many users: it **never stores tokens**, and credentials in its settings are ignored. Each user gets a token and configures it in their MCP client.
 
 1. **Get a token.** Use the `login` tool (email + password). It returns the Agile PM response, including the access token, refresh token and expiry.
    - `login` and `refresh_token` are the only tools that work without a token.
 2. **Configure the token** in your MCP client:
    - HTTP: add the header `Authorization: Bearer <access token>`.
-   - stdio: set the environment variable `AGILEPM_TOKEN=<access token>`.
+   - stdio without credentials: set the environment variable `AGILEPM_TOKEN=<access token>`.
 3. **Use the tools.** Every call forwards the token to Agile PM.
 4. **When the token expires**, tools return *"Agile PM rejected the access token (401) … call refresh_token or login"*. Call `refresh_token` with the old access token and the refresh token, then update the configured token.
 
@@ -302,10 +329,12 @@ Any client that supports MCP can use this server. Registering it means telling t
 | | **HTTP** (remote or local server) | **stdio** (client starts the exe) |
 |---|---|---|
 | Use when | The server is [hosted](#publishing-and-hosting-on-a-server) for a team, or you run it yourself with `dotnet run` | Each user has the executable on their own machine |
-| The client needs | The server URL + the header `Authorization: Bearer <token>` | The exe path, the argument `--stdio`, and the env variable `AGILEPM_TOKEN=<token>` |
+| The client needs | The server URL + the header `Authorization: Bearer <token>` | The exe path, the argument `--stdio`, and `AGILEPM_EMAIL` + `AGILEPM_PASSWORD` (or `AGILEPM_TOKEN=<token>`) in its env |
 | Server must be running first | Yes | No: the client starts and stops it |
 
 ### Step 2: get a token
+
+**stdio:** skip this step if you set `AGILEPM_EMAIL` and `AGILEPM_PASSWORD`; the server signs in itself. The other stdio examples below use `AGILEPM_TOKEN`; swap in those two variables the same way.
 
 Call the `login` tool (see [Authentication](#authentication)) or use the `login` request in `AutoPM_MCP.http`. Copy the access token from the response.
 
@@ -355,7 +384,7 @@ Docs: <https://docs.claude.com/en/docs/claude-code/mcp>
 claude mcp add --transport http autopm <URL> --header "Authorization: Bearer <token>"
 
 # stdio
-claude mcp add autopm --env AGILEPM_TOKEN=<token> -- "<EXE>" --stdio
+claude mcp add autopm --env AGILEPM_EMAIL=<email> --env AGILEPM_PASSWORD=<password> -- "<EXE>" --stdio
 ```
 
 Add `--scope` to choose where it's saved:
@@ -911,7 +940,9 @@ Ask the assistant something like:
 
 ### When the token expires
 
-Tokens expire, and the server never refreshes them silently. When tools start returning *401*:
+**stdio with credentials:** nothing to do; the server signs in again by itself (see [stdio: automatic sign-in](#stdio-automatic-sign-in)).
+
+**HTTP, or stdio with only `AGILEPM_TOKEN`:** the server doesn't renew these tokens. When tools start returning *401*:
 
 1. Call `refresh_token` (with the old access token and the refresh token) or `login`.
 2. Put the new access token where the client reads it:
@@ -942,8 +973,8 @@ Annotations: **R** = read-only, **W** = changes data (non-destructive), **I** = 
 
 | Tool | | Parameters | Agile PM endpoint | Notes |
 |------|---|------------|-------------------|-------|
-| `login` | W | `email`, `password` | `POST Auth/Login` | No token needed. Returns the access token, refresh token and expiry. |
-| `refresh_token` | W | `jwtToken`, `refreshToken` | `POST Auth/RefreshToken` | No token needed. Returns a new token pair. |
+| `login` | W | `email`, `password` | `POST Auth/Login` | No token needed. Returns the access token, refresh token and expiry. In stdio mode the session switches to the new token. |
+| `refresh_token` | W | `jwtToken`, `refreshToken` | `POST Auth/RefreshToken` | No token needed. Returns a new token pair. In stdio mode the session switches to the new token. |
 
 ### ProjectSetup: `Tools/ProjectSetup/ProjectTools.cs`
 
@@ -1234,7 +1265,7 @@ After publishing, the output folder contains:
 **Running with only the executable.** Without `appsettings.json`, the API URL must come from the environment:
 
 ```bash
-AgilePM__ApiBaseUrl=https://your-agilepm-host/api/ ./AutoPM_MCP --stdio
+AgilePM__ApiBaseUrl=https://agilepm.example.com/api/ ./AutoPM_MCP --stdio
 ```
 
 Without a base URL from either source, the server exits with code 1 and prints *"AgilePM:ApiBaseUrl … is required"*.
@@ -1300,7 +1331,7 @@ In **HTTP mode**, one server instance serves many users. Each user's MCP client 
 | ☐ | **HTTPS** in front of the server | Bearer tokens travel in a header. Never expose plain HTTP beyond localhost. |
 | ☐ | `McpTransport` is `Http` (the default) | stdio mode doesn't listen on a port. |
 | ☐ | Listening address set (`ASPNETCORE_URLS` or `--urls`) | The default is `http://localhost:5000`, which can't be reached from other machines. |
-| ☐ | `AgilePM:ApiBaseUrl` set, and the server can reach it | Check with `curl https://your-agilepm-host/coreswagger/index.html` from the server. |
+| ☐ | `AgilePM:ApiBaseUrl` set, and the server can reach it | Check with `curl https://agilepm.example.com/coreswagger/index.html` from the server. |
 | ☐ | Log levels raised to `Information` or `Warning` | `Debug` is noisy in production. |
 | ☐ | Log file path is absolute, in a writable folder | It's relative to the working directory by default. |
 | ☐ | CORS reviewed | `Program.cs` allows any origin. Narrow it if browser clients connect from known origins only. |
@@ -1320,7 +1351,7 @@ In **HTTP mode**, one server instance serves many users. Each user's MCP client 
 ```bash
 ASPNETCORE_URLS=http://0.0.0.0:8080             # address:port to listen on (behind a proxy)
 ASPNETCORE_ENVIRONMENT=Production
-AgilePM__ApiBaseUrl=https://your-agilepm-host/api/
+AgilePM__ApiBaseUrl=https://agilepm.example.com/api/
 AgilePM__TimeoutSeconds=30
 Serilog__MinimumLevel__Default=Information
 Serilog__WriteTo__1__Args__path=/var/log/autopm-mcp/app-.log   # absolute log path (index 1 = the File sink)
@@ -1475,7 +1506,7 @@ Add a `.dockerignore` with `bin/`, `obj/`, `publish/`, `logs/` to keep the build
 ```bash
 docker build -t autopm-mcp:1.0.0 .
 docker run -d --name autopm-mcp -p 8080:8080 --restart unless-stopped \
-  -e AgilePM__ApiBaseUrl=https://your-agilepm-host/api/ \
+  -e AgilePM__ApiBaseUrl=https://agilepm.example.com/api/ \
   autopm-mcp:1.0.0
 docker logs -f autopm-mcp
 ```
@@ -1656,7 +1687,7 @@ AutoPM_MCP/
 
 ## Adding a new tool
 
-1. **Find the endpoint** in the [Swagger docs](https://your-agilepm-host/coreswagger/index.html) and note which controller it belongs to.
+1. **Find the endpoint** in the [Swagger docs](https://agilepm.example.com/coreswagger/index.html) and note which controller it belongs to.
 2. **Choose the file:** `Tools/<Controller>/<Area>Tools.cs`. Create the folder or class if needed.
 3. **Write the method.** Inject `AgilePmClient` (and `CurrentUser` if you need the caller's identity) through the constructor:
 

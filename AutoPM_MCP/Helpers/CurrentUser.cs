@@ -30,9 +30,9 @@ public sealed class CurrentUser(IAccessTokenProvider tokenProvider)
         "preferred_username",
     ];
 
-    public UserIdentity GetIdentity()
+    public async Task<UserIdentity> GetIdentityAsync(CancellationToken cancellationToken = default)
     {
-        var token = tokenProvider.GetAccessToken()
+        var token = await tokenProvider.GetAccessTokenAsync(cancellationToken)
             ?? throw new McpException($"You are not signed in to Agile PM. {tokenProvider.MissingTokenHint}");
 
         var claims = DecodePayload(token);
@@ -47,7 +47,7 @@ public sealed class CurrentUser(IAccessTokenProvider tokenProvider)
         return new UserIdentity(ids, emails);
     }
 
-    private static JsonElement DecodePayload(string token)
+    internal static JsonElement DecodePayload(string token)
     {
         var parts = token.Split('.');
         if (parts.Length < 2)
