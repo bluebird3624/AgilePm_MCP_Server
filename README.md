@@ -25,7 +25,7 @@ from contract to delivery. Judging by what its API exposes, it covers:
 | **Reporting** | Progress summaries per epic, phase and milestone; work distribution across the team |
 | **Support and integrations** | Support tickets and contracts; Azure DevOps integration; Employee Self-Service (ESS) single sign-on |
 
-It's built on a REST API secured with JWT bearer tokens. The API is documented with Swagger at `/coreswagger/index.html` on your Agile PM host.
+It's built on a REST API secured with JWT bearer tokens.
 
 ### What this MCP server adds
 
@@ -85,8 +85,6 @@ features aren't exposed yet (see [Known limitations](#known-limitations-and-road
 4. The Agile PM response envelope is unwrapped and errors are turned into plain messages. The tool returns compact JSON to the AI.
 
 The HTTP transport is **stateless**. Each request stands alone, so you can run several instances behind a load balancer with no sticky sessions.
-
-Agile PM API documentation (Swagger): <https://agilepm.example.com/coreswagger/index.html>
 
 ---
 
@@ -1333,7 +1331,7 @@ In **HTTP mode**, one server instance serves many users. Each user's MCP client 
 | ☐ | **HTTPS** in front of the server | Bearer tokens travel in a header. Never expose plain HTTP beyond localhost. |
 | ☐ | `McpTransport` is `Http` (the default) | stdio mode doesn't listen on a port. |
 | ☐ | Listening address set (`ASPNETCORE_URLS` or `--urls`) | The default is `http://localhost:5000`, which can't be reached from other machines. |
-| ☐ | `AgilePM:ApiBaseUrl` set, and the server can reach it | Check with `curl https://agilepm.example.com/coreswagger/index.html` from the server. |
+| ☐ | `AgilePM:ApiBaseUrl` set, and the server can reach it | Check with `curl` against the Agile PM host from the server. |
 | ☐ | Log levels raised to `Information` or `Warning` | `Debug` is noisy in production. |
 | ☐ | Log file path is absolute, in a writable folder | It's relative to the working directory by default. |
 | ☐ | CORS reviewed | `Program.cs` allows any origin. Narrow it if browser clients connect from known origins only. |
@@ -1689,7 +1687,7 @@ AutoPM_MCP/
 
 ## Adding a new tool
 
-1. **Find the endpoint** in the [Swagger docs](https://agilepm.example.com/coreswagger/index.html) and note which controller it belongs to.
+1. **Find the endpoint** in the Agile PM API and note which controller it belongs to.
 2. **Choose the file:** `Tools/<Controller>/<Area>Tools.cs`. Create the folder or class if needed.
 3. **Write the method.** Inject `AgilePmClient` (and `CurrentUser` if you need the caller's identity) through the constructor:
 
