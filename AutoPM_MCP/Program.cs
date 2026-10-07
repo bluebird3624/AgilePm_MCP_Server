@@ -1,4 +1,5 @@
 using AutoPM_MCP.Helpers;
+using Microsoft.Extensions.Configuration.Json;
 using Serilog;
 using Serilog.Events;
 
@@ -45,6 +46,7 @@ static McpTransportMode ResolveTransport(string[] args)
     var configuration = new ConfigurationBuilder()
         .SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: true)
+        .AddJsonFile("appsettings.Local.json", optional: true)
         .AddEnvironmentVariables()
         .AddCommandLine(args)
         .Build();
@@ -63,6 +65,7 @@ static McpTransportMode ResolveTransport(string[] args)
 static async Task RunHttpAsync(string[] args)
 {
     var builder = WebApplication.CreateBuilder(args);
+    AddLocalSettings(builder.Configuration);
 
     builder.Logging.ClearProviders();
 
@@ -115,6 +118,8 @@ static async Task RunStdioAsync(string[] args)
         ContentRootPath = AppContext.BaseDirectory,
     });
 
+    AddLocalSettings(builder.Configuration);
+
     // stdout carries the MCP protocol in stdio mode: every log line must go to stderr.
     RouteConsoleLogsToStandardError(builder.Configuration);
 
@@ -152,5 +157,24 @@ static void RouteConsoleLogsToStandardError(ConfigurationManager configuration)
         {
             configuration[$"{sink.Path}:Args:standardErrorFromLevel"] = "Verbose";
         }
+    }
+}
+
+// appsettings.Local.json is git-ignored and holds real Agile PM endpoints and credentials,
+// so the committed appsettings.json can stay dummy data.
+static void AddLocalSettings(ConfigurationManager configuration)
+{
+    // Insert after the last appsettings*.json source so environment variables and the command line still win.
+    var sources = configuration.Sources;
+    var index = sources.ToList().FindLastIndex(source =>
+        source is JsonConfigurationSource { Path: { } path } && path.StartsWith("appsettings", StringComparison.OrdinalIgnoreCase));
+    var local = new JsonConfigurationSource { Path = "appsettings.Local.json", Optional = true, ReloadOnChange = false };
+    if (index < 0)
+    {
+        sources.Add(local);
+    }
+    else
+    {
+        sources.Insert(index + 1, local);
     }
 }

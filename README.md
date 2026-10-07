@@ -254,6 +254,8 @@ Settings are read in this order, **later sources win**:
 
 > Environment variables use a double underscore (`__`) in place of `:`. For example, `AgilePM__ApiBaseUrl`.
 
+> **Developing locally?** Put your real `AgilePM` values in `AutoPM_MCP/appsettings.Local.json` instead of `appsettings.json`. That file is git-ignored and overrides `appsettings.json`; environment variables and command-line arguments still override both. Keep `appsettings.json` on dummy values.
+
 ### Example `appsettings.json` (excerpt)
 
 ```json
